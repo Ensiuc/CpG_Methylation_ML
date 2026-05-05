@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CpG Methylation ML Pipeline</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --teal: #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+  .dna-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(88,166,255,0.1);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 2rem;
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+  header h1 span { color: var(--accent); }
+  header p {
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    font-size: 1rem;
+  }
+  .header-meta {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-green { background: var(--green); }
+  .dot-amber { background: var(--amber); }
+  .dot-purple { background: var(--purple); }
+
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  nav a {
+    display: block;
+    padding: 1rem 1.25rem;
+    font-size: 14px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  nav a:hover, nav a.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    text-decoration: none;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+
+  section { margin-bottom: 4rem; }
+  section h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Dataset table */
+  .dataset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+  .dataset-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+  .dataset-card:hover { border-color: var(--accent); }
+  .dataset-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+  .dataset-card h3 { font-size: 0.95rem; font-weight: 600; }
+  .n-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .n-small { background: rgba(248,81,73,0.15); color: var(--red); }
+  .n-med { background: rgba(210,153,34,0.15); color: var(--amber); }
+  .n-large { background: rgba(63,185,80,0.15); color: var(--green); }
+  .dataset-card p { font-size: 13px; color: var(--muted); margin-bottom: 0.5rem; }
+  .dataset-card .tissue-tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(88,166,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(88,166,255,0.2);
+  }
+
+  /* Tool cards */
+  .tool-section-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+  }
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .tool-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .tool-card-header:hover { background: var(--surface2); }
+  .tool-name-group { display: flex; align-items: center; gap: 12px; }
+  .tool-name { font-weight: 600; font-size: 0.95rem; }
+  .tool-subtitle { font-size: 13px; color: var(--muted); }
+  .status-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 2rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .status-selected { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .status-partial { background: rgba(210,153,34,0.15); color: var(--amber); border: 1px solid rgba(210,153,34,0.3); }
+  .status-excluded { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .chevron { color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+  .chevron.open { transform: rotate(180deg); }
+
+  .tool-card-body {
+    display: none;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .tool-card-body.open { display: block; }
+  .tool-desc { color: var(--muted); font-size: 14px; margin: 1rem 0; }
+
+  .pros-cons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .pros, .cons {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .pros h4 { color: var(--green); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+  .cons h4 { color: var(--red); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+  .pros ul, .cons ul { list-style: none; }
+  .pros ul li, .cons ul li { font-size: 13px; color: var(--muted); padding: 3px 0; padding-left: 1.2em; position: relative; }
+  .pros ul li::before { content: '+'; position: absolute; left: 0; color: var(--green); font-weight: 600; }
+  .cons ul li::before { content: '−'; position: absolute; left: 0; color: var(--red); font-weight: 600; }
+
+  .tool-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .learn-link {
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+  }
+  .rationale-box {
+    background: rgba(88,166,255,0.07);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    font-size: 13px;
+    color: var(--text);
+    margin-top: 0.75rem;
+  }
+  .rationale-box strong { color: var(--accent); }
+
+  /* Pipeline diagram */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .pipeline-step {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+  .pipeline-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40px;
+    flex-shrink: 0;
+  }
+  .pipeline-node {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .pipeline-line {
+    flex: 1;
+    width: 2px;
+    background: var(--border);
+    margin: 0 auto;
+  }
+  .pipeline-content {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    margin-left: 0.75rem;
+  }
+  .pipeline-content h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .pipeline-content p { font-size: 13px; color: var(--muted); }
+  .pipeline-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 0.5rem;
+  }
+  .ptool {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* Summary table */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .summary-table th {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .summary-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: var(--surface2); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  footer a { color: var(--accent); }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.6rem; }
+    .pros-cons { grid-template-columns: 1fr; }
+    .dataset-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dna-badge">⬡ Epigenomics · Machine Learning · Multi-Dataset</div>
+  <h1>CpG Methylation <span>ML Pipeline</span></h1>
+  <p>Machine learning analysis of DNA methylation patterns across a shared genomic region in multiple independent early-life exposure cohorts.</p>
+  <div class="header-meta">
+    <div class="meta-pill"><div class="dot dot-green"></div> 4 Datasets</div>
+    <div class="meta-pill"><div class="dot dot-amber"></div> ~7–8kb Region</div>
+    <div class="meta-pill"><div class="dot dot-purple"></div> CpG Island + Gene Body</div>
+    <div class="meta-pill"><div class="dot dot-green"></div> Python Pipeline</div>
+  </div>
+</header>
+
+<nav>
+  <a href="#datasets" class="active">Datasets</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#tools">ML Tools</a>
+  <a href="#rationale">Decisions</a>
+  <a href="https://github.com/Ensiuc/CpG_Methylation_ML">GitHub ↗</a>
+</nav>
+
+<main>
+
+  <!-- DATASETS -->
+  <section id="datasets">
+    <h2>
+      <div class="section-icon" style="background:rgba(88,166,255,0.1)">📊</div>
+      Datasets
+    </h2>
+    <div class="dataset-grid">
+      <div class="dataset-card">
+        <div class="card-header">
+          <h3>Wildfire Smoke</h3>
+          <span class="n-badge n-med">n = 22</span>
+        </div>
+        <p>2008 California wildfire PM2.5 exposure during first 3 months of life</p>
+        <p>Control: 14 · Exposed: 8</p>
+        <span class="tissue-tag">Nasal Epithelial</span>
+      </div>
+      <div class="dataset-card">
+        <div class="card-header">
+          <h3>Maternal Obesity</h3>
+          <span class="n-badge n-small">n = 13</span>
+        </div>
+        <p>Obese vs lean maternal condition. Multiple brain regions analyzed.</p>
+        <p>Lean: 6 · Obese: 7</p>
+        <span class="tissue-tag">Brain Regions</span>
+      </div>
+      <div class="dataset-card">
+        <div class="card-header">
+          <h3>Preconception Stress</h3>
+          <span class="n-badge n-large">n ≈ 70</span>
+        </div>
+        <p>Maternal stress before conception. Largest cohort — primary ML dataset.</p>
+        <p>Control: ~45 · Stressed: ~25</p>
+        <span class="tissue-tag">TBD</span>
+      </div>
+      <div class="dataset-card">
+        <div class="card-header">
+          <h3>cfDNA (Longitudinal)</h3>
+          <span class="n-badge n-small">n = 8–14</span>
+        </div>
+        <p>Cell-free fetal DNA across trimesters. Longitudinal trajectory analysis.</p>
+        <p>4–7 samples per group per trimester</p>
+        <span class="tissue-tag">Cell-free Fetal DNA</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section id="pipeline">
+    <h2>
+      <div class="section-icon" style="background:rgba(63,185,80,0.1)">⚙</div>
+      Analysis Pipeline
+    </h2>
+    <div class="pipeline">
+
+      <div class="pipeline-step">
+        <div class="pipeline-connector">
+          <div class="pipeline-node" style="background:rgba(88,166,255,0.2);color:#58a6ff">1</div>
+          <div class="pipeline-line"></div>
+        </div>
+        <div class="pipeline-content">
+          <h3>Data Loading & QC</h3>
+          <p>Load CpG beta matrices per dataset. Coverage filtering, variance filtering, align CpG positions across datasets.</p>
+          <div class="pipeline-tools">
+            <span class="ptool">pandas</span>
+            <span class="ptool">numpy</span>
+            <span class="ptool">scipy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="pipeline-connector">
+          <div class="pipeline-node" style="background:rgba(88,166,255,0.2);color:#58a6ff">2</div>
+          <div class="pipeline-line"></div>
+        </div>
+        <div class="pipeline-content">
+          <h3>Unsupervised Exploration</h3>
+          <p>PCA, UMAP, and hierarchical clustering heatmap. Color by condition, dataset, tissue. Identify natural sample groupings.</p>
+          <div class="pipeline-tools">
+            <span class="ptool">scikit-learn PCA</span>
+            <span class="ptool">umap-learn</span>
+            <span class="ptool">seaborn clustermap</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="pipeline-connector">
+          <div class="pipeline-node" style="background:rgba(88,166,255,0.2);color:#58a6ff">3</div>
+          <div class="pipeline-line"></div>
+        </div>
+        <div class="pipeline-content">
+          <h3>Supervised Classification</h3>
+          <p>ElasticNet with LOOCV for small datasets. ElasticNet + Random Forest with 5-fold CV for preconception stress. Feature importance = key CpGs.</p>
+          <div class="pipeline-tools">
+            <span class="ptool">ElasticNet</span>
+            <span class="ptool">Random Forest</span>
+            <span class="ptool">LOOCV / 5-fold CV</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="pipeline-connector">
+          <div class="pipeline-node" style="background:rgba(88,166,255,0.2);color:#58a6ff">4</div>
+          <div class="pipeline-line"></div>
+        </div>
+        <div class="pipeline-content">
+          <h3>Multi-Dataset Integration (MOFA+)</h3>
+          <p>Latent factor decomposition across all four datasets simultaneously. Identifies shared vs. exposure-specific methylation factors.</p>
+          <div class="pipeline-tools">
+            <span class="ptool">mofapy2</span>
+            <span class="ptool">Multi-group MOFA</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="pipeline-connector">
+          <div class="pipeline-node" style="background:rgba(88,166,255,0.2);color:#58a6ff">5</div>
+          <div class="pipeline-line"></div>
+        </div>
+        <div class="pipeline-content">
+          <h3>Cross-Dataset Validation</h3>
+          <p>Per-CpG meta-analysis combining effect sizes across datasets. Fixed-effects model. Identifies CpGs consistently important across all exposures.</p>
+          <div class="pipeline-tools">
+            <span class="ptool">statsmodels</span>
+            <span class="ptool">scipy</span>
+            <span class="ptool">Meta-analysis</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TOOLS -->
+  <section id="tools">
+    <h2>
+      <div class="section-icon" style="background:rgba(188,140,255,0.1)">🔬</div>
+      ML Tools — Full Overview
+    </h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:1.5rem;">Click any tool to expand pros, cons, and links. Status indicates whether it was selected for this project.</p>
+
+    <div class="tool-section-label">Dimensionality Reduction & Unsupervised</div>
+
+    <!-- PCA -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">PCA — Principal Component Analysis</div>
+            <div class="tool-subtitle">Linear dimensionality reduction · scikit-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Finds the directions of maximum variance in the CpG beta matrix. Each principal component is a linear combination of CpG positions. Used to visualize sample separation and identify which CpGs drive the most variance.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Fully interpretable — loadings map to CpGs</li>
+              <li>Deterministic — same result every run</li>
+              <li>Works with any sample size</li>
+              <li>No hyperparameters to tune</li>
+              <li>Quantifiable variance explained</li>
+              <li>Gold standard in omics</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Linear only — misses non-linear patterns</li>
+              <li>Sensitive to outliers</li>
+              <li>May reflect batch effects</li>
+              <li>First PCs may not reflect biology</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html" target="_blank" class="learn-link">scikit-learn docs ↗</a>
+          <a href="https://www.youtube.com/watch?v=FgakZw6K1QQ" target="_blank" class="learn-link">StatQuest tutorial ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected:</strong> Essential first step — linear, interpretable, works with all sample sizes including small N datasets. CpG loadings directly tell us which positions drive variation.</div>
+      </div>
+    </div>
+
+    <!-- UMAP -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">UMAP — Uniform Manifold Approximation</div>
+            <div class="tool-subtitle">Non-linear dimensionality reduction · umap-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Non-linear dimensionality reduction that preserves both local and global structure. Captures complex methylation patterns that PCA's linearity would miss. Used as a follow-up to PCA.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Captures non-linear structure</li>
+              <li>Preserves global structure better than t-SNE</li>
+              <li>Faster than t-SNE</li>
+              <li>Visually intuitive clusters</li>
+              <li>Handles high-dimensional data</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Not deterministic by default</li>
+              <li>Sensitive to n_neighbors, min_dist</li>
+              <li>No direct feature loadings</li>
+              <li>Unreliable with very small N (&lt;20)</li>
+              <li>Cluster distances not meaningful</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://umap-learn.readthedocs.io/" target="_blank" class="learn-link">UMAP docs ↗</a>
+          <a href="https://pair-code.github.io/understanding-umap/" target="_blank" class="learn-link">Interactive explainer ↗</a>
+          <a href="https://arxiv.org/abs/1802.03426" target="_blank" class="learn-link">Original paper ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected:</strong> Complementary to PCA — captures non-linear patterns. Used cautiously for small datasets (obesity, cfDNA). Primary use on wildfire (n=22) and stress (n=70) cohorts.</div>
+      </div>
+    </div>
+
+    <!-- tSNE -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">t-SNE — t-Distributed Stochastic Neighbor Embedding</div>
+            <div class="tool-subtitle">Non-linear dimensionality reduction · scikit-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-excluded">✗ Excluded</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Non-linear method focused on local neighborhood preservation. Widely used historically but largely superseded by UMAP for most applications.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Excellent local cluster separation</li>
+              <li>Widely cited in literature</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Does not preserve global structure</li>
+              <li>Distances between clusters meaningless</li>
+              <li>Very slow on large datasets</li>
+              <li>Cannot embed new data points</li>
+              <li>Superseded by UMAP</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://distill.pub/2016/misread-tsne/" target="_blank" class="learn-link">How to use t-SNE effectively ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why excluded:</strong> UMAP is strictly better — faster, preserves global structure, can embed new points. No reason to use t-SNE when UMAP is available.</div>
+      </div>
+    </div>
+
+    <!-- Hierarchical clustering -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Hierarchical Clustering Heatmap</div>
+            <div class="tool-subtitle">Unsupervised clustering · seaborn / scipy</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Builds a dendrogram of samples and CpG positions based on methylation similarity. Visualized as a heatmap (samples × CpGs) revealing spatial methylation patterns within the region.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Shows actual beta values — highly interpretable</li>
+              <li>Reveals spatial sub-regions within locus</li>
+              <li>Works with any sample size</li>
+              <li>No cluster number needed in advance</li>
+              <li>Standard in epigenomics publications</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Sensitive to distance metric choice</li>
+              <li>Clusters not statistically validated</li>
+              <li>Color scale affects visual perception</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://seaborn.pydata.org/generated/seaborn.clustermap.html" target="_blank" class="learn-link">seaborn clustermap ↗</a>
+          <a href="https://docs.scipy.org/doc/scipy/reference/cluster.hierarchy.html" target="_blank" class="learn-link">scipy hierarchical ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected:</strong> The most direct way to visualize methylation patterns across the ~7–8kb region. Can reveal whether a specific sub-region (e.g., part of the CpG island) drives differences.</div>
+      </div>
+    </div>
+
+    <div class="tool-section-label">Supervised Classification</div>
+
+    <!-- ElasticNet -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">ElasticNet Logistic Regression</div>
+            <div class="tool-subtitle">Regularized classification · scikit-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected — Primary</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Logistic regression with combined L1 + L2 regularization. L1 drives some CpG coefficients to zero (feature selection); L2 handles correlated CpGs by distributing weight across them rather than arbitrarily zeroing all but one.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Handles correlated features (critical for CpGs)</li>
+              <li>Automatic feature selection via L1</li>
+              <li>Works well with small N</li>
+              <li>Coefficients are directly interpretable</li>
+              <li>Fast training and cross-validation</li>
+              <li>Validated in methylation literature</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Assumes linear relationship</li>
+              <li>Requires hyperparameter tuning (alpha, l1_ratio)</li>
+              <li>Unreliable at very small N (&lt;10)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html" target="_blank" class="learn-link">scikit-learn docs ↗</a>
+          <a href="https://rss.onlinelibrary.wiley.com/doi/10.1111/j.1467-9868.2005.00503.x" target="_blank" class="learn-link">Zou & Hastie 2005 ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected as primary:</strong> CpGs within a region are spatially correlated. LASSO would arbitrarily drop correlated CpGs; ElasticNet's L2 component distributes weight across them, preserving spatial information. LOOCV used for small datasets; 5-fold CV for stress cohort.</div>
+      </div>
+    </div>
+
+    <!-- Random Forest -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Random Forest</div>
+            <div class="tool-subtitle">Ensemble classification · scikit-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-partial">~ Selected (stress only)</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Ensemble of decision trees trained on bootstrap samples and random CpG subsets. Feature importance from mean decrease in impurity reveals which CpGs best discriminate conditions across trees.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Captures non-linear patterns</li>
+              <li>No feature scaling needed</li>
+              <li>Built-in OOB error estimate</li>
+              <li>Robust to outliers</li>
+              <li>Works with correlated features</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Needs N &gt; 20 per class minimum</li>
+              <li>Less interpretable than ElasticNet</li>
+              <li>Feature importance can be biased</li>
+              <li>Many hyperparameters</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html" target="_blank" class="learn-link">scikit-learn docs ↗</a>
+          <a href="https://link.springer.com/article/10.1023/A:1010933404324" target="_blank" class="learn-link">Breiman 2001 ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected (stress only):</strong> Only the preconception stress cohort (n≈70) has sufficient sample size for Random Forest. Used alongside ElasticNet to compare feature importance — agreement between models strengthens CpG candidates.</div>
+      </div>
+    </div>
+
+    <!-- SVM -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Support Vector Machine (SVM)</div>
+            <div class="tool-subtitle">Kernel-based classification · scikit-learn</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-excluded">✗ Excluded</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Finds a maximum-margin hyperplane separating classes. With RBF kernel, captures non-linear boundaries. Effective in high-dimensional spaces.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Works in high-dimensional spaces</li>
+              <li>Effective when classes are separable</li>
+              <li>Kernel trick allows non-linearity</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>No native feature importance</li>
+              <li>Slow to tune (C, kernel, gamma)</li>
+              <li>Not interpretable</li>
+              <li>No probability output by default</li>
+              <li>Unreliable with small N</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://scikit-learn.org/stable/modules/svm.html" target="_blank" class="learn-link">scikit-learn SVM ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why excluded:</strong> Interpretability is a priority — we need to know which CpGs matter. SVM requires post-hoc methods (SHAP) to extract feature importance, adding complexity without clear benefit over ElasticNet.</div>
+      </div>
+    </div>
+
+    <!-- Neural Networks -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Neural Networks / Deep Learning</div>
+            <div class="tool-subtitle">PyTorch / TensorFlow</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-excluded">✗ Excluded</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Multi-layer non-linear models. CNNs have been applied to methylation array data for disease classification at scale.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Learns complex patterns automatically</li>
+              <li>CNNs can model CpG spatial relationships</li>
+              <li>State of the art for large datasets</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Requires N &gt; 100 per class minimum</li>
+              <li>Completely uninterpretable</li>
+              <li>Guaranteed to overfit here</li>
+              <li>Cannot be validated with our sample sizes</li>
+              <li>Computationally expensive</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://pytorch.org/" target="_blank" class="learn-link">PyTorch ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why excluded:</strong> Total samples across all datasets ≈ 120. Deep learning requires hundreds to thousands of samples per class. Applying neural networks here would produce severely overfit, uninterpretable, and unvalidatable models.</div>
+      </div>
+    </div>
+
+    <div class="tool-section-label">Multi-Dataset Integration</div>
+
+    <!-- MOFA+ -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">MOFA+ — Multi-Omics Factor Analysis</div>
+            <div class="tool-subtitle">Probabilistic latent factor model · mofapy2</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected — Primary Integration</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Probabilistic framework that decomposes data from multiple groups into shared and group-specific latent factors. Each factor has loadings on CpG positions, identifying which sites drive shared vs. dataset-specific variation.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Designed exactly for this use case</li>
+              <li>Handles unequal sample sizes naturally</li>
+              <li>No batch correction needed</li>
+              <li>Separates shared from specific signals</li>
+              <li>CpG loadings are interpretable</li>
+              <li>Handles missing CpGs per dataset</li>
+              <li>Python API available (mofapy2)</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Number of factors K must be chosen</li>
+              <li>Convergence requires multiple runs</li>
+              <li>Python API less documented than R</li>
+              <li>More complex than simple PCA</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02015-1" target="_blank" class="learn-link">Argelaguet et al. 2020 ↗</a>
+          <a href="https://github.com/bioFAM/mofapy2" target="_blank" class="learn-link">mofapy2 GitHub ↗</a>
+          <a href="https://biofam.github.io/MOFA2/tutorials.html" target="_blank" class="learn-link">Tutorials ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected:</strong> MOFA+ is the only tool that explicitly models multiple biological groups with the same features. It answers our core question — which CpGs show consistent patterns across obesity, wildfire, and stress — without requiring batch correction or equal sample sizes.</div>
+      </div>
+    </div>
+
+    <!-- Harmony -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Harmony</div>
+            <div class="tool-subtitle">Batch correction · harmonypy</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-excluded">✗ Excluded</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Iterative batch correction that adjusts PCA embeddings to remove technical batch effects while preserving biological variation. Originally developed for single-cell RNA-seq.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Very effective at batch correction</li>
+              <li>Fast — works on PCA embeddings</li>
+              <li>Widely used in single-cell omics</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Correction tool, not integration tool</li>
+              <li>Can remove real biological signal</li>
+              <li>Tissue and dataset are confounded here</li>
+              <li>Does not identify shared factors</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://www.nature.com/articles/s41592-019-0619-0" target="_blank" class="learn-link">Korsunsky et al. 2019 ↗</a>
+          <a href="https://github.com/slowkow/harmonypy" target="_blank" class="learn-link">harmonypy ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why excluded:</strong> Harmony removes variation between datasets — but in this project, the between-dataset biological signal is exactly what we want to study. MOFA+ models it; Harmony would erase it.</div>
+      </div>
+    </div>
+
+    <!-- Meta-analysis -->
+    <div class="tool-card">
+      <div class="tool-card-header" onclick="toggle(this)">
+        <div class="tool-name-group">
+          <div>
+            <div class="tool-name">Per-CpG Meta-Analysis</div>
+            <div class="tool-subtitle">Statistical integration · statsmodels / scipy</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-badge status-selected">✓ Selected — Validation</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="tool-card-body">
+        <p class="tool-desc">Combines effect sizes (Cohen's d or regression coefficients) per CpG from separate analyses of each dataset using fixed-effects or random-effects models. Statistically validates MOFA+ findings.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Statistically rigorous and well-validated</li>
+              <li>Handles different sample sizes (weights by precision)</li>
+              <li>No raw data alignment required</li>
+              <li>Already used in prior analysis (metafor)</li>
+              <li>Per-CpG resolution</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li>Operates on summary statistics — less power than joint modeling</li>
+              <li>Fixed-effects assumption may not hold across tissues</li>
+              <li>Does not identify latent shared factors</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tool-footer">
+          <a href="https://www.statsmodels.org/" target="_blank" class="learn-link">statsmodels ↗</a>
+          <a href="https://www.metafor-project.org/" target="_blank" class="learn-link">metafor (R) ↗</a>
+        </div>
+        <div class="rationale-box"><strong>Why selected:</strong> Builds directly on the previous analysis (metafor in R). Used as a validation layer — CpGs identified by MOFA+ as shared should also show consistent effect sizes across datasets in the meta-analysis.</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- DECISION SUMMARY -->
+  <section id="rationale">
+    <h2>
+      <div class="section-icon" style="background:rgba(210,153,34,0.1)">⚖</div>
+      Decision Summary
+    </h2>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Status</th>
+          <th>Dataset(s)</th>
+          <th>Key Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>PCA</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All</td>
+          <td>Linear, interpretable, works at any N</td>
+        </tr>
+        <tr>
+          <td>UMAP</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All (cautiously)</td>
+          <td>Non-linear complement to PCA</td>
+        </tr>
+        <tr>
+          <td>Hierarchical Clustering</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All</td>
+          <td>Spatial visualization of methylation patterns</td>
+        </tr>
+        <tr>
+          <td>ElasticNet</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All</td>
+          <td>Handles correlated CpGs; regularized for small N</td>
+        </tr>
+        <tr>
+          <td>Random Forest</td>
+          <td><span class="status-badge status-partial">~ Stress only</span></td>
+          <td>Stress (n≈70)</td>
+          <td>Only dataset with sufficient N for RF</td>
+        </tr>
+        <tr>
+          <td>MOFA+</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All combined</td>
+          <td>Explicitly models shared vs. specific factors</td>
+        </tr>
+        <tr>
+          <td>Meta-analysis</td>
+          <td><span class="status-badge status-selected">✓ Selected</span></td>
+          <td>All</td>
+          <td>Validates MOFA+ with statistical rigor</td>
+        </tr>
+        <tr>
+          <td>t-SNE</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>Superseded by UMAP</td>
+        </tr>
+        <tr>
+          <td>k-Means</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>Requires k; assumes spherical clusters</td>
+        </tr>
+        <tr>
+          <td>SVM</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>No native feature importance; not interpretable</td>
+        </tr>
+        <tr>
+          <td>XGBoost / LightGBM</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>Requires large N; overkill for single region</td>
+        </tr>
+        <tr>
+          <td>Neural Networks</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>N~120 total — guaranteed overfit; uninterpretable</td>
+        </tr>
+        <tr>
+          <td>Harmony / ComBat</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>Removes the signal we want to study</td>
+        </tr>
+        <tr>
+          <td>LASSO</td>
+          <td><span class="status-badge status-excluded">✗ Excluded</span></td>
+          <td>—</td>
+          <td>Drops correlated CpGs arbitrarily; ElasticNet is better</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  <p>CpG Methylation ML Pipeline · <a href="https://github.com/Ensiuc/CpG_Methylation_ML">github.com/Ensiuc/CpG_Methylation_ML</a> · 2026</p>
+</footer>
+
+<script>
+function toggle(header) {
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chevron.classList.toggle('open', !isOpen);
+}
+
+document.querySelectorAll('nav a').forEach(link => {
+  link.addEventListener('click', function() {
+    document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>

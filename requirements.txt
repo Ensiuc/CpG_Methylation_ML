@@ -1,0 +1,29 @@
+# CpG Methylation ML — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core scientific stack
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.11.0
+
+# Machine learning
+scikit-learn>=1.3.0
+
+# Dimensionality reduction
+umap-learn>=0.5.3
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Multi-dataset integration (MOFA+)
+mofapy2>=0.7.0
+h5py>=3.8.0
+
+# Notebook support
+jupyter>=1.0.0
+ipykernel>=6.0.0
+
+# Utilities
+tqdm>=4.65.0
+joblib>=1.3.0
