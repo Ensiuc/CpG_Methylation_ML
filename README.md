@@ -1,21 +1,12 @@
 # CpG Methylation ML Pipeline
 
-> Machine learning analysis of DNA methylation patterns across a shared genomic region in multiple independent cohorts exposed to distinct early-life stressors.
+> Machine learning analysis of DNA methylation patterns across a shared genomic region in multiple independent cohorts.
 
 ---
 
 ## Overview
 
-This project applies unsupervised and supervised machine learning to CpG-level methylation data from a shared ~7–8kb genomic region (CpG island + gene body) across four independent datasets representing different early-life exposures:
-
-| Dataset | Exposure | Tissue | N (Control / Exposed) |
-|---|---|---|---|
-| Wildfire Smoke | PM2.5 exposure (2008 CA wildfires) | Nasal epithelial | 14 / 8 |
-| Obesity | Maternal obesity | Brain regions | 6 / 7 |
-| Preconception Stress | Maternal stress | TBD | ~45 / ~25 |
-| cfDNA (Longitudinal) | — | Cell-free fetal DNA | 4–7 / trimester |
-
-The core biological question: **do different early-life stressors converge on shared methylation patterns within this region?**
+This project applies unsupervised and supervised machine learning to CpG-level methylation data from a shared ~7–8kb genomic region (CpG island + gene body) across four independent datasets 
 
 ---
 
@@ -48,13 +39,8 @@ CpG_Methylation_ML/
 
 ## Methods
 
-### Prior Differential Methylation Analysis
-Before ML, differential methylation was assessed using:
-- **dmrseq** — region-based DMR detection with GLS + permutation testing
-- **Feature-level t-tests** — sample-level mean methylation per feature (CpG island, gene body) with global FDR correction
-- Unit of analysis: biological sample (not individual CpG positions)
 
-### Machine Learning Pipeline
+### Machine Learning Options
 
 #### 1. Preprocessing
 - Coverage filtering (minimum reads per CpG per sample)
@@ -68,7 +54,7 @@ Before ML, differential methylation was assessed using:
 
 #### 3. Supervised Analysis
 - ElasticNet logistic regression (primary — regularized for small N)
-- Random Forest (preconception stress dataset only, largest N)
+- Random Forest (largest N)
 - Cross-validation: LOOCV for small datasets, 5-fold for stress cohort
 
 #### 4. Multi-Dataset Integration (MOFA+)
@@ -130,7 +116,7 @@ python src/integration/run_mofa.py
 ## Citation
 
 If you use this pipeline, please cite the relevant tools:
-- dmrseq: Korthauer et al. (2019) *Biostatistics*
+
 - MOFA+: Argelaguet et al. (2020) *Genome Biology*
 - UMAP: McInnes et al. (2018) *JOSS*
 
@@ -138,4 +124,4 @@ If you use this pipeline, please cite the relevant tools:
 
 ## Author
 
-**Ensiuc** | GitHub: [@Ensiuc](https://github.com/Ensiuc)
+**Ensieh Habibi** | GitHub: [@Ensiuc](https://github.com/Ensiuc)
