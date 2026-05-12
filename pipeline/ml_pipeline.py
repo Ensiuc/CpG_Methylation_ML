@@ -5,25 +5,30 @@ Multi-dataset methylation analysis pipeline for shared signature discovery
 across a ~7-8 kb region (CpG island + gene body).
 
 Datasets:
-  - Wildfire Smoke  : Nasal epithelial  | n=22  (14 ctrl / 8 exposed)
-  - Obesity         : Brain regions     | n=13  (6 lean / 7 obese)
-  - Preconc. Stress : TBD              | n≈70  (~45 ctrl / ~25 stress)
-  - cfDNA           : Cell-free fetal  | n=8-14 per trimester
+  - stress                  : Nasal epithelial (NHIP)     | n=76  (52 ctrl / 24 stressed)
+  - wildfire                : Nasal epithelial (HongJi)   | n=21  (13 ctrl / 8 exposed)
+  - obesity_hippocampus     : Brain - Hippocampus         | n=13  (6 ctrl / 7 obese)
+  - obesity_hypothalamus    : Brain - Hypothalamus        | n=13  (6 ctrl / 7 obese)
+  - obesity_prefrontalcortex: Brain - Prefrontal Cortex   | n=13  (6 ctrl / 7 obese)
+  - cfdna_GD45              : cfDNA - Gestational Day 45  | n=11  (4 ctrl / 7 obese)
+  - cfdna_GD90              : cfDNA - Gestational Day 90  | n=11  (4 ctrl / 7 obese)
+  - cfdna_GD120             : cfDNA - Gestational Day 120 | n=12  (5 ctrl / 7 obese)
+  - cfdna_GD150             : cfDNA - Gestational Day 150 | n=13  (6 ctrl / 7 obese)
 
-Selected ML Tools (see docs/ml_tools_overview.md for full rationale):
+Selected ML Tools:
   - PCA + UMAP + Hierarchical Clustering  (unsupervised exploration)
   - ElasticNet with LOOCV / 5-fold CV     (primary supervised classifier)
-  - Random Forest                          (stress dataset only, n≈70)
+  - Random Forest                          (stress dataset only, n=76)
   - MOFA+                                  (multi-dataset integration)
   - Per-CpG meta-analysis                  (validation step)
 
 NOT used: XGBoost, SVM, Deep Learning, ComBat, Harmony, k-Means, t-SNE
-See docs/ml_tools_overview.md for exclusion rationale.
 
 Usage:
   python ml_pipeline.py --dataset wildfire --region cpgi
   python ml_pipeline.py --dataset stress --region genebody --model both
   python ml_pipeline.py --mofa --region cpgi
+  python ml_pipeline.py --meta --region cpgi
 
 Author: Ensi Habibi
 """
@@ -54,12 +59,19 @@ warnings.filterwarnings("ignore")
 # CONFIGURATION
 # ─────────────────────────────────────────────
 
-# Datasets and their approximate sample sizes (for CV strategy selection)
+# Datasets and their actual sample sizes (determines CV strategy)
+# Rule: n < 30 → LOOCV, n >= 30 → 5-fold CV
+# Random Forest only enabled for n >= 40
 DATASET_SIZES = {
-    "wildfire": 22,   # LOOCV
-    "obesity":  13,   # LOOCV
-    "stress":   70,   # 5-fold CV + Random Forest
-    "cfdna":    12,   # LOOCV (per-trimester; approximate)
+    "stress"                  : 76,   # 5-fold CV + Random Forest
+    "wildfire"                : 21,   # LOOCV
+    "obesity_hippocampus"     : 13,   # LOOCV
+    "obesity_hypothalamus"    : 13,   # LOOCV
+    "obesity_prefrontalcortex": 13,   # LOOCV
+    "cfdna_GD45"              : 11,   # LOOCV
+    "cfdna_GD90"              : 11,   # LOOCV
+    "cfdna_GD120"             : 12,   # LOOCV
+    "cfdna_GD150"             : 13,   # LOOCV
 }
 
 REGIONS = ["cpgi", "genebody"]
