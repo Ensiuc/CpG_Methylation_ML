@@ -81,31 +81,60 @@ def load_dataset(dataset_name: str, region: str):
     """
     Load methylation matrix and labels for a given dataset and region.
 
-    Expected file: data/processed/{dataset_name}_{region}_methylation.csv
-    Format: rows = samples, columns = CpG positions + a 'label' column
-            label: 1 = exposed/case, 0 = control
+    Standard bioinformatics format (minfi, SeSAMe, bismark-compatible):
+
+      Beta matrix — data/processed/{dataset_name}_{region}_methylation.csv
+        rows    = CpG positions (e.g. cg00001234)
+        columns = sample IDs
+        values  = beta values [0, 1]
+
+      Labels file — data/processed/{dataset_name}_labels.csv
+        columns: sample_id, label   (1 = exposed/case, 0 = control)
+        sample_id must match column names in the beta matrix
 
     Returns:
         X : DataFrame (n_samples × n_cpgs) — beta values [0, 1]
-        y : Series — binary labels
+        y : Series — binary labels, indexed by sample_id
     """
-    data_path = os.path.join(
-        os.path.dirname(__file__), "..", "data", "processed",
-        f"{dataset_name}_{region}_methylation.csv"
-    )
-    if not os.path.exists(data_path):
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "data", "processed")
+
+    beta_path   = os.path.join(data_dir, f"{dataset_name}_{region}_methylation.csv")
+    labels_path = os.path.join(data_dir, f"{dataset_name}_labels.csv")
+
+    if not os.path.exists(beta_path):
         raise FileNotFoundError(
-            f"Data file not found: {data_path}\n"
-            "Place processed methylation matrices (samples × CpGs + 'label' column) "
-            "in data/processed/"
+            f"Beta matrix not found: {beta_path}\n"
+            "Expected format: CpGs as rows, samples as columns."
+        )
+    if not os.path.exists(labels_path):
+        raise FileNotFoundError(
+            f"Labels file not found: {labels_path}\n"
+            "Expected columns: sample_id, label  (1=case, 0=control)."
         )
 
-    df = pd.read_csv(data_path, index_col=0)
-    if "label" not in df.columns:
-        raise ValueError("Data file must contain a 'label' column (1=case, 0=control).")
+    # Load beta matrix (CpGs × samples) and transpose → samples × CpGs
+    beta = pd.read_csv(beta_path, index_col=0)
+    X = beta.T                          # now: rows=samples, columns=CpGs
+    X.index.name = "sample_id"
 
-    y = df["label"].astype(int)
-    X = df.drop(columns=["label"])
+    # Load labels and align to sample order
+    labels = pd.read_csv(labels_path, index_col="sample_id")
+    if "label" not in labels.columns:
+        raise ValueError(f"{labels_path} must have a 'label' column (1=case, 0=control).")
+
+    # Keep only samples present in both files
+    common = X.index.intersection(labels.index)
+    if len(common) == 0:
+        raise ValueError(
+            "No matching sample IDs between beta matrix columns and labels file.\n"
+            "Check that sample names match exactly (case-sensitive)."
+        )
+    if len(common) < len(X):
+        missing = set(X.index) - set(common)
+        print(f"  [WARN] {len(missing)} samples in beta matrix have no label — dropped: {missing}")
+
+    X = X.loc[common]
+    y = labels.loc[common, "label"].astype(int)
 
     n_case    = y.sum()
     n_control = (y == 0).sum()
