@@ -1,0 +1,1 @@
+[{"bin": 602, "chrom": "chr10", "chromStart": 2308519, "chromEnd": 2308739, "name": "CpG: 20", "length": 220, "cpgNum": 20, "gcNum": 157, "perCpg": 18.2, "perGc": 71.4, "obsExp": 0.74}, {"bin": 603, "chrom": "chr10", "chromStart": 2433174, "chromEnd": 2433562, "name": "CpG: 42", "length": 388, "cpgNum": 42, "gcNum": 280, "perCpg": 21.6, "perGc": 72.2, "obsExp": 0.85}]
